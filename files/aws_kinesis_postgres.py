@@ -339,7 +339,7 @@ def cleanup_schema(conn: psycopg2._psycopg.connection, config: ConfigParser):
 def set_activity_defaults(conn: psycopg2._psycopg.connection) -> [int]:
     cur = conn.cursor()
     execute_sql(cur, 'SELECT COUNT(*) from gn_app.customers')
-    customers_number = cur.fetchone()[0]
+    customers_number = cur.fetchone()[0] - 1
     return [customers_number]
 
 
