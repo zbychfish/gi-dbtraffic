@@ -400,7 +400,7 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
     task_timeout = 5 if config.get('settings', 'processing_speed') == 'slow' \
         else 1 if config.get('settings', 'processing_speed') == 'normal' else 0
     tasks_list = ['get_customer_info', 'add_customer', 'add_credit_card']
-    info_types = ['name_surname', 'email', 'users_from_city', 'credit_card']
+    info_types = ['name_surname', 'email', 'users_from_city', 'has_user_cc']
     while is_time_reached(end_time):
         session_steps_number = random.randint(1, int(config.get('settings', 'maximum_steps_in_session')))
         app_session_user = random.randint(0, len(config.get('settings', 'app_users').split(',')) - 1)
@@ -414,7 +414,7 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
                 app_cursor = app_conn[0].cursor()
                 app_cursor.execute("SELECT customer_id FROM gn_app.customers LIMIT 1 OFFSET {}".
                                    format(random.randint(0, customer_number)))
-                get_info_type = random.choices(info_types, weights=(0.5, 0.3, 0.2, 0))
+                get_info_type = random.choices(info_types, weights=(0.45, 0.3, 0.15, 0.9))
                 if get_info_type[0] == 'name_surname':
                     app_cursor.execute("SELECT customer_fname, customer_lname, city, zipcode, street FROM "
                                        "gn_app.customers WHERE customer_id='{}'".format(app_cursor.fetchone()[0]))
@@ -430,8 +430,13 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
                     result_set = app_cursor.fetchone()
                     app_cursor.execute("SELECT COUNT(*) FROM gn_app.customers WHERE city='{}' AND street='{}'"
                                        .format(result_set[0], result_set[1]))
-                elif get_info_type[0] == 'credit_card':
-                    pass
+                elif get_info_type[0] == 'has_user_cc':
+                    result_set = app_cursor.fetchone()
+                    app_cursor.execute("SELECT COUNT(*) FROM gn_app.credit_cards WHERE customer_id='{}'"
+                                       .format(result_set[0]))
+                    if app_cursor.fetchone()[0] != 0:
+                        app_cursor.execute("SELECT card_number, card_validity FROM "
+                                           "gn_app.credit_cards WHERE customer_id='{}'".format(result_set[0]))
                 app_cursor.close()
             elif session_task[0] == 'add_customer':
                 print('add_customer')
