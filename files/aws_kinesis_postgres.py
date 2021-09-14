@@ -266,6 +266,10 @@ def deploy_schema(conn: psycopg2._psycopg.connection, config: ConfigParser):
           "mail varchar(50)," \
           "phone varchar(30))"
     execute_sql(cur, sql)
+    execute_sql(cur, "ALTER TABLE gn_app.customers ALTER COLUMN customer_id SET NOT NULL")
+    execute_sql(cur, "ALTER TABLE gn_app.customers ADD CONSTRAINT customers_pk PRIMARY KEY (customer_id)")
+    execute_sql(cur, "CREATE TABLE IF NOT EXISTS gn_app.credit_cards (customer_id UUID REFERENCES "
+                     "gn_app.customers (customer_id), card_number varchar(30), card_validity varchar(12))")
     execute_sql(cur, "GRANT USAGE ON SCHEMA gn_app TO gn_users")
     execute_sql(cur, "GRANT USAGE ON SCHEMA gn_app TO app_users")
     execute_sql(cur, "GRANT SELECT ON ALL TABLES IN SCHEMA gn_app TO gn_users")
@@ -395,7 +399,7 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
     customer_number = defaults[0]
     task_timeout = 5 if config.get('settings', 'processing_speed') == 'slow' \
         else 1 if config.get('settings', 'processing_speed') == 'normal' else 0
-    tasks_list = ['get_customer_info', 'add_customer']
+    tasks_list = ['get_customer_info', 'add_customer', 'add_credit_card']
     info_types = ['name_surname', 'email', 'users_from_city', 'credit_card']
     while is_time_reached(end_time):
         session_steps_number = random.randint(1, int(config.get('settings', 'maximum_steps_in_session')))
@@ -404,7 +408,7 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
         app_conn = connect_to_database(config, config.get('settings', 'app_users').split(',')[app_session_user],
                                    config.get('settings', 'default_password'))
         for i in range(0, session_steps_number):
-            session_task = random.choices(tasks_list, weights=(0.95, 0.05), k=1)
+            session_task = random.choices(tasks_list, weights=(0.95, 0.045, 0.005), k=1)
             if session_task[0] == 'get_customer_info':
                 print('get_customer ')
                 app_cursor = app_conn[0].cursor()
@@ -429,12 +433,27 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
                 elif get_info_type[0] == 'credit_card':
                     pass
                 app_cursor.close()
-                time.sleep(task_timeout)
             elif session_task[0] == 'add_customer':
                 print('add_customer')
                 app_cursor = app_conn[0].cursor()
                 add_customer(config, app_cursor)
                 customer_number += 1
                 app_cursor.close()
-                time.sleep(task_timeout)
+            elif session_task[0] == 'add_credit_card':
+                print('add_credit_card ')
+                fake = Faker(config.get('settings', 'language'))
+                card_provider = random.choices(['maestro', 'mastercard', 'visa'])
+                app_cursor = app_conn[0].cursor()
+                app_cursor.execute("SELECT customer_id FROM gn_app.customers LIMIT 1 OFFSET {}".
+                                   format(random.randint(0, customer_number)))
+                app_cursor.execute("INSERT INTO gn_app.credit_cards (customer_id, card_number, card_validity) "
+                                   "VALUES ('{ci}','{cc}','{cv}')".format(
+                    ci=app_cursor.fetchone()[0],
+                    cc=fake.credit_card_number(card_type=card_provider[0]),
+                    cv=fake.credit_card_expire(start='now', end='+10y', date_format='%m/%y')
+                ))
+                app_cursor.close()
+            time.sleep(task_timeout)
         app_conn[0].close()
+
+#add lookup does user has card and is card valid
