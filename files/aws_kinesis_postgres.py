@@ -414,7 +414,7 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
                 app_cursor = app_conn[0].cursor()
                 app_cursor.execute("SELECT customer_id FROM gn_app.customers LIMIT 1 OFFSET {}".
                                    format(random.randint(0, customer_number)))
-                get_info_type = random.choices(info_types, weights=(0.45, 0.3, 0.15, 0.9))
+                get_info_type = random.choices(info_types, weights=(0.45, 0.3, 0.15, 0.1))
                 if get_info_type[0] == 'name_surname':
                     app_cursor.execute("SELECT customer_fname, customer_lname, city, zipcode, street FROM "
                                        "gn_app.customers WHERE customer_id='{}'".format(app_cursor.fetchone()[0]))
