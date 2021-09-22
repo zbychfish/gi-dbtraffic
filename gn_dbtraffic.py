@@ -16,7 +16,7 @@ else:
 
 if conn[1] != 'OK':
     print('Connection problem {}'.format(conn[1]))
-    exit (103)
+    exit(103)
 
 execution_time = 720
 end_time = datetime.datetime.now() + datetime.timedelta(minutes=execution_time)

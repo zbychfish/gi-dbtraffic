@@ -400,7 +400,8 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
         else 1 if config.get('settings', 'processing_speed') == 'normal' \
         else 0.05 if config.get('settings', 'processing_speed') == 'fast' else 0
     tasks_list = ['get_customer_info', 'add_customer', 'add_credit_card', 'buy_feature']
-    info_types = ['name_surname', 'email', 'users_from_city', 'has_user_cc']
+    info_types = ['name_surname', 'email', 'users_from_city', 'has_user_cc', 'extras_per_user', 'features_per_user',
+                  'get_addons_per_user']
     while is_time_reached(end_time):
         session_steps_number = random.randint(1, int(config.get('settings', 'maximum_steps_in_session')))
         app_session_user = random.randint(0, len(config.get('settings', 'app_users').split(',')) - 1)
@@ -410,11 +411,11 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
         for i in range(0, session_steps_number):
             session_task = random.choices(tasks_list, weights=(0.95, 0.045, 0.0005, 0.002), k=1)
             if session_task[0] == 'get_customer_info':
-                print('get_customer ')
+                print('get_customer: ', end="")
                 app_cursor = app_conn[0].cursor()
                 app_cursor.execute("SELECT customer_id FROM gn_app.customers LIMIT 1 OFFSET {}".
                                    format(random.randint(0, customer_number)))
-                get_info_type = random.choices(info_types, weights=(0.45, 0.3, 0.15, 0.1))
+                get_info_type = random.choices(info_types, weights=(0.4, 0.2, 0.15, 0.1, 0.05, 0.05, 0.1))
                 if get_info_type[0] == 'name_surname':
                     app_cursor.execute("SELECT customer_fname, customer_lname, city, zipcode, street FROM "
                                        "gn_app.customers WHERE customer_id='{}'".format(app_cursor.fetchone()[0]))
@@ -437,6 +438,43 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
                     if app_cursor.fetchone()[0] != 0:
                         app_cursor.execute("SELECT card_id, card_number, card_validity FROM "
                                            "gn_app.credit_cards WHERE customer_id='{}'".format(result_set[0]))
+                elif get_info_type[0] == 'extras_per_user':
+                    result_set = app_cursor.fetchone()
+                    app_cursor.execute("SELECT COUNT(extra_id) FROM gn_app.transactions WHERE "
+                                       "customer_id='{}'".format(result_set[0]))
+                    if app_cursor.fetchone()[0] != 0:
+                        app_cursor.execute("SELECT e.extra_name, e.extra_price, t.transaction_time FROM"
+                                           " gn_app.transactions t, gn_app.extras e WHERE "
+                                           "t.customer_id = '{}' AND e.extra_id = t.extra_id".format(result_set[0]))
+                        app_cursor.execute("SELECT SUM(e.extra_price) FROM gn_app.transactions t, gn_app.extras e "
+                                           "where t.customer_id = '{}' AND "
+                                           "e.extra_id = t.extra_id".format(result_set[0]))
+                elif get_info_type[0] == 'features_per_user':
+                    result_set = app_cursor.fetchone()
+                    app_cursor.execute("SELECT COUNT(feature_id) FROM gn_app.transactions WHERE "
+                                       "customer_id='{}'".format(result_set[0]))
+                    if app_cursor.fetchone()[0] != 0:
+                        app_cursor.execute("SELECT f.feature_name, f.feature_price, t.transaction_time FROM"
+                                           " gn_app.transactions t, gn_app.features f WHERE "
+                                           "t.customer_id = '{}' AND f.feature_id = t.feature_id".format(result_set[0]))
+                        app_cursor.execute("SELECT SUM(f.feature_price) FROM gn_app.transactions t, gn_app.features f "
+                                           "where t.customer_id = '{}' AND "
+                                           "f.feature_id = t.feature_id".format(result_set[0]))
+                elif get_info_type[0] == 'features_per_user':
+                    result_set = app_cursor.fetchone()
+                    if app_cursor.fetchone()[0] != 0:
+                        app_cursor("SELECT COUNT(t.transaction_time) FROM gn_app.transactions t WHERE "
+                                   "t.customer_id = '{}'".format(result_set[0]))
+                        app_cursor.execute("SELECT e.extra_name, f.feature_name, t.price, t.transaction_time FROM "
+                                           "gn_app.transactions t  FULL OUTER JOIN gn_app.extras e ON "
+                                           "e.extra_id = t.extra_id FULL OUTER JOIN gn_app.features f ON "
+                                           "f.feature_id = t.feature_id where t.customer_id = "
+                                           "'{}'".format(result_set[0]))
+                        app_cursor.execute("SELECT SUM(t.price) FROM gn_app.transactions t FULL OUTER JOIN "
+                                           "gn_app.extras e ON e.extra_id = t.extra_id FULL OUTER JOIN "
+                                           "gn_app.features f ON f.feature_id = t.feature_id WHERE "
+                                           "t.customer_id = '{}'".format(result_set[0]))
+                print(get_info_type[0])
                 app_cursor.close()
             elif session_task[0] == 'add_customer':
                 print('add_customer')
