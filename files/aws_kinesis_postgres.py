@@ -394,7 +394,7 @@ def add_cc(config: ConfigParser.__class__, cursor: psycopg2._psycopg.cursor, cus
     ))
 
 
-def application_traffic(config: ConfigParser, defaults: [int], end_time: datetime.datetime):
+def application_traffic(config: ConfigParser, defaults: [int], end_time: datetime.datetime, args: ConfigParser):
     customer_number = defaults[0]
     task_timeout = 5 if config.get('settings', 'processing_speed') == 'slow' \
         else 1 if config.get('settings', 'processing_speed') == 'normal' \
@@ -402,16 +402,24 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
     tasks_list = ['get_customer_info', 'add_customer', 'add_credit_card', 'buy_feature']
     info_types = ['name_surname', 'email', 'users_from_city', 'has_user_cc', 'extras_per_user', 'features_per_user',
                   'get_addons_per_user']
+    sessions_number = 0
     while is_time_reached(end_time):
         session_steps_number = random.randint(1, int(config.get('settings', 'maximum_steps_in_session')))
         app_session_user = random.randint(0, len(config.get('settings', 'app_users').split(',')) - 1)
-        print("Switch context to user {} for {} tasks".format(app_session_user, session_steps_number))
+        if args.v:
+            print("Switch context to user {} for {} tasks".format(app_session_user, session_steps_number))
+        else:
+            sessions_number += 1
+            print("\rNumber of sessions: {}".format(sessions_number), end="")
         app_conn = connect_to_database(config, config.get('settings', 'app_users').split(',')[app_session_user],
                                    config.get('settings', 'default_password'))
         for i in range(0, session_steps_number):
             session_task = random.choices(tasks_list, weights=(0.95, 0.045, 0.0005, 0.002), k=1)
+            if args.v:
+                print(session_task)
             if session_task[0] == 'get_customer_info':
-                print('get_customer: ', end="")
+                if args.v:
+                    print('get_customer: ', end="")
                 app_cursor = app_conn[0].cursor()
                 app_cursor.execute("SELECT customer_id FROM gn_app.customers LIMIT 1 OFFSET {}".
                                    format(random.randint(0, customer_number)))
@@ -474,22 +482,23 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
                                            "gn_app.extras e ON e.extra_id = t.extra_id FULL OUTER JOIN "
                                            "gn_app.features f ON f.feature_id = t.feature_id WHERE "
                                            "t.customer_id = '{}'".format(result_set[0]))
-                print(get_info_type[0])
+                if args.v:
+                    print(get_info_type[0])
                 app_cursor.close()
             elif session_task[0] == 'add_customer':
-                print('add_customer')
+                #print('add_customer')
                 app_cursor = app_conn[0].cursor()
                 add_customer(config, app_cursor)
                 customer_number += 1
                 app_cursor.close()
             elif session_task[0] == 'add_credit_card':
-                print('add_credit_card ')
+                #print('add_credit_card ')
                 app_cursor = app_conn[0].cursor()
                 app_cursor.execute("SELECT customer_id FROM gn_app.customers LIMIT 1 OFFSET {}".
                                    format(random.randint(0, customer_number)))
                 add_cc(config, app_cursor, app_cursor.fetchone()[0])
             elif session_task[0] == 'buy_feature':
-                print('buy feature ')
+                #print('buy feature ')
                 app_cursor = app_conn[0].cursor()
                 app_cursor.execute("SELECT customer_id FROM gn_app.customers LIMIT 1 OFFSET {}".
                                                  format(random.randint(0, customer_number)))
@@ -512,7 +521,8 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
                         app_cursor.execute("SELECT extra_id, extra_price from gn_app.extras "
                                            "ORDER BY random() LIMIT 1")
                         extra = app_cursor.fetchone()
-                        print("Extra: ", extra)
+                        if args.v:
+                            print("Extra: ", extra)
                         app_cursor.execute("INSERT INTO gn_app.transactions ("
                                            "extra_id, price, customer_id, card_id) VALUES ("
                                            "'{}', '{}', '{}', '{}')"
@@ -522,7 +532,8 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
                         app_cursor.execute("SELECT feature_id, feature_price from gn_app.features "
                                            "ORDER BY random() LIMIT 1")
                         feature = app_cursor.fetchone()
-                        print(feature)
+                        if args.v:
+                            print(feature)
                         if is_object(app_cursor, "SELECT COUNT(feature_id) FROM gn_app.transactions WHERE "
                                                  "customer_id='{}' AND feature_id='{}'"
                            .format(customer_id, feature[0])) == 0:
@@ -531,9 +542,11 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
                                                "'{}', '{}', '{}', '{}')"
                                                .format(feature[0], feature[1], customer_id, credit_card[0]))
                         else:
-                            print("User has feature - transaction cancelled")
+                            if args.v:
+                                print("User has feature - transaction cancelled")
                 else:
-                    print("Card expired - transaction rejected")
+                    if args.v:
+                        print("Card expired - transaction rejected")
                 app_cursor.close()
             time.sleep(task_timeout)
         app_conn[0].close()
