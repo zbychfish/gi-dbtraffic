@@ -402,7 +402,7 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
         else 0.05 if config.get('settings', 'processing_speed') == 'fast' else 0
     tasks_list = ['get_customer_info', 'add_customer', 'add_credit_card', 'buy_feature']
     info_types = ['name_surname', 'email', 'users_from_city', 'has_user_cc', 'extras_per_user', 'features_per_user',
-                  'get_addons_per_user']
+                  'get_addons_per_user', 'get_extras_per_time']
     sessions_number = 0
     while is_time_reached(end_time):
         session_steps_number = random.randint(1, int(config.get('settings', 'maximum_steps_in_session')))
@@ -424,7 +424,7 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
                 app_cursor = app_conn[0].cursor()
                 app_cursor.execute("SELECT customer_id FROM gn_app.customers LIMIT 1 OFFSET {}".
                                    format(random.randint(0, customer_number)))
-                get_info_type = random.choices(info_types, weights=(0.4, 0.2, 0.15, 0.1, 0.05, 0.05, 0.1))
+                get_info_type = random.choices(info_types, weights=(0.4, 0.2, 0.15, 0.1, 0.05, 0.05, 0.1, 0.05))
                 if get_info_type[0] == 'name_surname':
                     app_cursor.execute("SELECT customer_fname, customer_lname, city, zipcode, street FROM "
                                        "gn_app.customers WHERE customer_id='{}'".format(app_cursor.fetchone()[0]))
@@ -483,23 +483,48 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
                                            "gn_app.extras e ON e.extra_id = t.extra_id FULL OUTER JOIN "
                                            "gn_app.features f ON f.feature_id = t.feature_id WHERE "
                                            "t.customer_id = '{}'".format(result_set[0]))
+                elif get_info_type[0] == 'get_extras_per_time':
+                    period = random.choices(['today',  'this_week', 'this_month', 'this_year', 'yesterday',
+                                             'last_week', 'last_month', 'last_year'],
+                                            weights=(0.7, 0.3, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05))
+                    if period[0] == 'today':
+                        clause = "DATE(transaction_time) = CURRENT_DATE"
+                    elif period[0] == 'this_week':
+                        clause = "DATE_TRUNC('week', DATE(transaction_time)) = DATE_TRUNC('week', CURRENT_DATE)"
+                    elif period[0] == 'this_month':
+                        clause = "DATE_TRUNC('month', DATE(transaction_time)) = DATE_TRUNC('month', CURRENT_DATE)"
+                    elif period[0] == 'this_year':
+                        clause = "DATE_TRUNC('year', DATE(transaction_time)) = DATE_TRUNC('year', CURRENT_DATE)"
+                    if period[0] == 'yesterday':
+                        clause = "DATE(transaction_time) = CURRENT_DATE - INTERVAL '1 day'"
+                    elif period[0] == 'last_week':
+                        clause = "transaction_time >= DATE_TRUNC('week', CURRENT_DATE - INTERVAL '1 week') " \
+                                 "AND transaction_time < DATE_TRUNC('week', CURRENT_DATE)"
+                    elif period[0] == 'last_month':
+                        clause = "transaction_time >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') " \
+                                 "AND transaction_time < DATE_TRUNC('month', CURRENT_DATE)"
+                    elif period[0] == 'last_year':
+                        clause = "transaction_time >= DATE_TRUNC('year', CURRENT_DATE - INTERVAL '1 year') " \
+                                 "AND transaction_time < DATE_TRUNC('year', CURRENT_DATE)"
+                    app_cursor.execute("SELECT SUM(PRICE) FROM gn_app.transactions WHERE {} "
+                                       "AND feature_id IS NOT NULL".format(clause))
+                    app_cursor.execute("SELECT SUM(PRICE) FROM gn_app.transactions WHERE {} "
+                                       "AND extra_id IS NOT NULL".format(clause))
+                    app_cursor.execute("SELECT SUM(PRICE) FROM gn_app.transactions WHERE {}".format(clause))
                 if args.v:
                     print(get_info_type[0])
                 app_cursor.close()
             elif session_task[0] == 'add_customer':
-                #print('add_customer')
                 app_cursor = app_conn[0].cursor()
                 add_customer(config, app_cursor)
                 customer_number += 1
                 app_cursor.close()
             elif session_task[0] == 'add_credit_card':
-                #print('add_credit_card ')
                 app_cursor = app_conn[0].cursor()
                 app_cursor.execute("SELECT customer_id FROM gn_app.customers LIMIT 1 OFFSET {}".
                                    format(random.randint(0, customer_number)))
                 add_cc(config, app_cursor, app_cursor.fetchone()[0])
             elif session_task[0] == 'buy_feature':
-                #print('buy feature ')
                 app_cursor = app_conn[0].cursor()
                 app_cursor.execute("SELECT customer_id FROM gn_app.customers LIMIT 1 OFFSET {}".
                                                  format(random.randint(0, customer_number)))
