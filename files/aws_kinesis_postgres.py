@@ -1,3 +1,4 @@
+import argparse
 import datetime
 import time
 import random
@@ -394,7 +395,7 @@ def add_cc(config: ConfigParser.__class__, cursor: psycopg2._psycopg.cursor, cus
     ))
 
 
-def application_traffic(config: ConfigParser, defaults: [int], end_time: datetime.datetime, args: ConfigParser):
+def application_traffic(config: ConfigParser, defaults: [int], end_time: datetime.datetime, args: argparse.Namespace):
     customer_number = defaults[0]
     task_timeout = 5 if config.get('settings', 'processing_speed') == 'slow' \
         else 1 if config.get('settings', 'processing_speed') == 'normal' \
@@ -412,11 +413,11 @@ def application_traffic(config: ConfigParser, defaults: [int], end_time: datetim
             sessions_number += 1
             print("\rNumber of sessions: {}".format(sessions_number), end="")
         app_conn = connect_to_database(config, config.get('settings', 'app_users').split(',')[app_session_user],
-                                   config.get('settings', 'default_password'))
+                                       config.get('settings', 'default_password'))
         for i in range(0, session_steps_number):
             session_task = random.choices(tasks_list, weights=(0.95, 0.045, 0.0005, 0.002), k=1)
             if args.v:
-                print(session_task)
+                print(session_task[0])
             if session_task[0] == 'get_customer_info':
                 if args.v:
                     print('get_customer: ', end="")
