@@ -1,4 +1,3 @@
-import random
 import datetime
 import argparse
 from configparser import ConfigParser
@@ -25,7 +24,7 @@ if conn[1] != 'OK':
     exit(103)
 
 end_time = datetime.datetime.now() + datetime.timedelta(minutes=c_args.t)
-print('Script will finish execustion:', end_time)
+print('Script will finish execution:', end_time)
 if c_args == 'clean' or c_args == 'rebuild':
     cleanup_schema(conn[0], config)
 if c_args == 'schema' or c_args == 'rebuild':
