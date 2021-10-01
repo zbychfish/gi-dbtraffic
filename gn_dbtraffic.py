@@ -10,6 +10,7 @@ print(config.get('db', 'type'))
 parser.add_argument('-v', help='Verbose output', required=False, action='store_true')
 parser.add_argument('-a', help='action', default='app_flow', choices=['app_flow', 'clean', 'schema', 'rebuild'])
 parser.add_argument('-t', help='execution time in minutes', default=60, type=int)
+parser.add_argument('-s', help='speed', default='slow', choices=['slow', 'normal', 'fast', 'insane'])
 c_args = parser.parse_args()
 if config.get('db', 'type') == 'aws_kinesis_postgres':
     from files.aws_kinesis_postgres import connect_to_database, deploy_schema, cleanup_schema,\
