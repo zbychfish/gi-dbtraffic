@@ -397,9 +397,7 @@ def add_cc(config: ConfigParser.__class__, cursor: psycopg2._psycopg.cursor, cus
 
 def application_traffic(config: ConfigParser, defaults: [int], end_time: datetime.datetime, args: argparse.Namespace):
     customer_number = defaults[0]
-    task_timeout = 5 if config.get('settings', 'processing_speed') == 'slow' \
-        else 1 if config.get('settings', 'processing_speed') == 'normal' \
-        else 0.05 if config.get('settings', 'processing_speed') == 'fast' else 0
+    task_timeout = 5 if args.s == 'slow' else 1 if args.s == 'normal' else 0.05 if args.s == 'fast' else 0
     tasks_list = ['get_customer_info', 'add_customer', 'add_credit_card', 'buy_feature']
     info_types = ['name_surname', 'email', 'users_from_city', 'has_user_cc', 'extras_per_user', 'features_per_user',
                   'get_addons_per_user', 'get_extras_per_time']
