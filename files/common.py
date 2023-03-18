@@ -12,7 +12,7 @@ def connect_to_database(config: ConfigParser, user: str, password: str) -> [obje
         return connect_to_mysql(config, user, password)
 
 
-def set_activity_defaults(conn: object) -> [int]:
+def set_activity_defaults(conn: object, config: configparser.ConfigParser) -> [int]:
     cur = conn.cursor()
     if config.get('db', 'type') == 'postgres':
         execute_sql(cur, "SELECT (CASE WHEN c.reltuples < 0 THEN NULL WHEN c.relpages = 0 THEN float8 '0' ELSE c.reltuples / c.relpages END * (pg_catalog.pg_relation_size(c.oid)/pg_catalog.current_setting('block_size')::int))::bigint FROM pg_catalog.pg_class c WHERE  c.oid = 'gn_app.customers'::regclass")
