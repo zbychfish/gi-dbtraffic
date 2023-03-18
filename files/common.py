@@ -16,7 +16,7 @@ def set_activity_defaults(conn: object) -> [int]:
     cur = conn.cursor()
     if config.get('db', 'type') == 'postgres':
         execute_sql(cur, "SELECT (CASE WHEN c.reltuples < 0 THEN NULL WHEN c.relpages = 0 THEN float8 '0' ELSE c.reltuples / c.relpages END * (pg_catalog.pg_relation_size(c.oid)/pg_catalog.current_setting('block_size')::int))::bigint FROM pg_catalog.pg_class c WHERE  c.oid = 'gn_app.customers'::regclass")
-    else
+    else:
         execute_sql(cur, 'SELECT COUNT(*) from gn_app.customers')
     customers_number = cur.fetchone()[0] - 1
     return [customers_number]
