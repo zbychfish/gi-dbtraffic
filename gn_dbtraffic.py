@@ -29,7 +29,7 @@ if c_args.a == 'clean' or c_args.a == 'rebuild':
 if c_args.a == 'schema' or c_args.a == 'rebuild':
     deploy_schema(conn[0], config)
 if c_args.a == 'app_flow':
-    session_defaults = set_activity_defaults(conn[0])
+    session_defaults = set_activity_defaults(conn[0], config)
 conn[0].close()
 if c_args.a == 'app_flow':
     application_traffic(config, session_defaults, end_time, c_args)
